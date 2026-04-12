@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PayPal Support Admin</title>
+  <title>PayPal Support Monitor</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -249,14 +249,15 @@
     </div>
 
     <div class="chat-window" id="chatWindow">
-      <div class="chat-header">
+      <div class="chat-header" id="chatHeader">
         <div class="avatar" id="chatAvatar">?</div>
         <div class="chat-header-info">
           <h3 id="chatName">Customer</h3>
           <p id="chatSessionId">Session ID</p>
         </div>
-        <div class="status-online">
-          <span class="live-dot"></span> Connected
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button onclick="blockUser()" style="background:#d32f2f;color:white;padding:8px 14px;border-radius:8px;font-size:13px;">🚫 Block</button>
+          <button onclick="deleteChat()" style="background:#d32f2f;color:white;padding:8px 14px;border-radius:8px;font-size:13px;">🗑️ Delete</button>
         </div>
       </div>
       <div class="messages" id="messages"></div>
@@ -277,7 +278,7 @@
   socket.on('connect', () => socket.emit('admin_connect'));
 
   socket.on('active_sessions', (data) => {
-    sessions = data.map(s => ({ id: s.userId, customerName: s.name }));
+    sessions = data;
     renderSessions();
   });
 
@@ -297,6 +298,17 @@
     }
   });
 
+  socket.on('blocked', () => {
+    alert('This customer has been blocked.');
+  });
+
+  socket.on('chat_deleted', () => {
+    alert('Chat has been deleted.');
+    document.getElementById('chatWindow').classList.remove('open');
+    document.getElementById('chatPlaceholder').style.display = 'flex';
+    activeSessionId = null;
+  });
+
   function renderSessions() {
     const list = document.getElementById('sessionList');
     const count = document.getElementById('sessionCount');
@@ -310,26 +322,26 @@
     count.textContent = `${sessions.length} active session${sessions.length !== 1 ? 's' : ''}`;
 
     list.innerHTML = sessions.map(s => {
-      const isActive = s.id === activeSessionId;
-      return `<div class="session-item${isActive ? ' active' : ''}" onclick="openSession('${s.id}')">
-        <div class="avatar">${s.customerName[0].toUpperCase()}</div>
+      const isActive = s.userId === activeSessionId;
+      return `<div class="session-item${isActive ? ' active' : ''}" onclick="openSession('${s.userId}')">
+        <div class="avatar">${s.name[0].toUpperCase()}</div>
         <div class="session-info">
-          <div class="session-name">${s.customerName}</div>
+          <div class="session-name">${s.name}</div>
           <div class="session-preview">Tap to join chat</div>
         </div>
       </div>`;
     }).join('');
   }
 
-  function openSession(sessionId) {
-    activeSessionId = sessionId;
-    socket.emit('join_session', sessionId);
+  function openSession(userId) {
+    activeSessionId = userId;
+    socket.emit('join_session', userId);
 
-    const session = sessions.find(s => s.id === sessionId);
+    const session = sessions.find(s => s.userId === userId);
     if (session) {
-      document.getElementById('chatAvatar').textContent = session.customerName[0].toUpperCase();
-      document.getElementById('chatName').textContent = session.customerName;
-      document.getElementById('chatSessionId').textContent = sessionId;
+      document.getElementById('chatAvatar').textContent = session.name[0].toUpperCase();
+      document.getElementById('chatName').textContent = session.name;
+      document.getElementById('chatSessionId').textContent = userId;
     }
 
     document.getElementById('chatPlaceholder').style.display = 'none';
@@ -338,14 +350,11 @@
     renderSessions();
   }
 
-  // STRONG DETECTION - Customer messages on LEFT, Admin on RIGHT
   function appendMessage(msg) {
     const container = document.getElementById('messages');
     const div = document.createElement('div');
 
-    // Strong check for customer messages
-    const isCustomer = msg.sender === 'customer' || 
-                       (msg.sender && msg.sender.toLowerCase() === 'customer');
+    const isCustomer = msg.sender === 'customer' || (msg.sender && msg.sender.toLowerCase() === 'customer');
 
     div.className = `message ${isCustomer ? 'from-customer' : 'from-admin'}`;
 
@@ -370,6 +379,25 @@
     if (!text) return;
     socket.emit('admin_message', { userId: activeSessionId, message: text });
     input.value = '';
+  }
+
+  function blockUser() {
+    if (!activeSessionId) return;
+    if (confirm('Block this customer?')) {
+      socket.emit('admin_block_user', activeSessionId);
+      alert('Customer blocked.');
+    }
+  }
+
+  function deleteChat() {
+    if (!activeSessionId) return;
+    if (confirm('Delete this entire chat permanently?')) {
+      socket.emit('admin_delete_chat', activeSessionId);
+      alert('Chat deleted.');
+      document.getElementById('chatWindow').classList.remove('open');
+      document.getElementById('chatPlaceholder').style.display = 'flex';
+      activeSessionId = null;
+    }
   }
 
   document.getElementById('sendBtn').addEventListener('click', sendMessage);
