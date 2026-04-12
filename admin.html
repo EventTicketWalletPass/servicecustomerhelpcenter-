@@ -186,23 +186,25 @@
     }
 
     .compose {
-      padding: 14px 24px;
+      padding: 12px 24px;
       background: #fff;
       border-top: 1px solid #dce3ed;
       display: flex;
       gap: 10px;
+      align-items: end;
     }
 
     .compose-input {
       flex: 1;
       border: 1.5px solid #dce3ed;
       border-radius: 20px;
-      padding: 10px 16px;
-      font-size: 14px;
+      padding: 12px 16px;
+      font-size: 15px;
       resize: none;
       outline: none;
-      max-height: 120px;
+      max-height: 160px;
       overflow-y: auto;
+      line-height: 1.4;
     }
 
     .send-btn {
@@ -210,11 +212,12 @@
       color: #fff;
       border: none;
       border-radius: 50%;
-      width: 42px; height: 42px;
+      width: 46px; height: 46px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      font-size: 20px;
     }
 
     @media (max-width: 430px) {
@@ -269,11 +272,15 @@
   </section>
 </div>
 
+<!-- Loud notification sound -->
+<audio id="notificationSound" src="https://www.soundjay.com/buttons/beep-07a.mp3"></audio>
+
 <script>
   const socket = io();
-
   let activeSessionId = null;
   let sessions = [];
+
+  const sound = document.getElementById('notificationSound');
 
   socket.on('connect', () => socket.emit('admin_connect'));
 
@@ -296,17 +303,11 @@
       appendMessage(message);
       document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
     }
-  });
-
-  socket.on('blocked', () => {
-    alert('This customer has been blocked.');
-  });
-
-  socket.on('chat_deleted', () => {
-    alert('Chat has been deleted.');
-    document.getElementById('chatWindow').classList.remove('open');
-    document.getElementById('chatPlaceholder').style.display = 'flex';
-    activeSessionId = null;
+    // Play loud notification sound for every new customer message
+    if (message.sender === 'customer') {
+      sound.currentTime = 0;
+      sound.play().catch(() => {});
+    }
   });
 
   function renderSessions() {
@@ -385,7 +386,7 @@
     if (!activeSessionId) return;
     if (confirm('Block this customer?')) {
       socket.emit('admin_block_user', activeSessionId);
-      alert('Customer blocked.');
+      alert('Customer has been blocked.');
     }
   }
 
