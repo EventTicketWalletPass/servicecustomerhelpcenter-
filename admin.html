@@ -6,224 +6,47 @@
   <title>PayPal Support Monitor</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
+    /* Same beautiful PayPal style as before + better mobile typing bar */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      background: #f0f4f8;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    header {
-      background: #003087;
-      color: #fff;
-      padding: 0 24px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    }
-
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f0f4f8; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    header { background: #003087; color: #fff; padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
     .logo { display: flex; align-items: center; gap: 10px; }
     .logo svg { width: 28px; height: 28px; }
     .logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
     .logo-text span { color: #009cde; }
-
-    .header-badge {
-      margin-left: auto;
-      background: #009cde;
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 12px;
-    }
-
-    .live-dot {
-      width: 8px; height: 8px;
-      background: #2ecc71;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 6px;
-      animation: pulse 1.5s infinite;
-    }
-
+    .header-badge { margin-left: auto; background: #009cde; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; }
+    .live-dot { width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
     .main { display: flex; flex: 1; overflow: hidden; }
-
-    .sidebar {
-      width: 320px;
-      background: #fff;
-      border-right: 1px solid #dce3ed;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sidebar-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid #dce3ed;
-      background: #f7f9fc;
-    }
-
+    .sidebar { width: 320px; background: #fff; border-right: 1px solid #dce3ed; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 16px 20px; border-bottom: 1px solid #dce3ed; background: #f7f9fc; }
     .session-count { font-size: 12px; color: #6b7c93; margin-top: 2px; }
-
     .session-list { flex: 1; overflow-y: auto; }
-
-    .session-item {
-      padding: 14px 20px;
-      border-bottom: 1px solid #f0f4f8;
-      cursor: pointer;
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
-
+    .session-item { padding: 14px 20px; border-bottom: 1px solid #f0f4f8; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; }
     .session-item:hover { background: #f7f9fc; }
     .session-item.active { background: #e8f0fe; border-left: 3px solid #003087; }
-
-    .avatar {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #009cde, #003087);
-      color: #fff;
-      font-size: 15px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #009cde, #003087); color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
     .session-info { flex: 1; }
     .session-name { font-size: 14px; font-weight: 600; color: #1a2b49; }
     .session-preview { font-size: 12px; color: #6b7c93; margin-top: 2px; }
-
     .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-    .chat-placeholder {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #9aa8bc;
-      gap: 12px;
-    }
-
-    .chat-window {
-      flex: 1;
-      display: none;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    .chat-placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9aa8bc; gap: 12px; }
+    .chat-window { flex: 1; display: none; flex-direction: column; overflow: hidden; }
     .chat-window.open { display: flex; }
-
-    .chat-header {
-      padding: 14px 24px;
-      border-bottom: 1px solid #dce3ed;
-      background: #fff;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      background: #f7f9fc;
-    }
-
-    .message {
-      display: flex;
-      gap: 8px;
-      max-width: 70%;
-    }
+    .chat-header { padding: 14px 24px; border-bottom: 1px solid #dce3ed; background: #fff; display: flex; align-items: center; gap: 12px; }
+    .messages { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; background: #f7f9fc; }
+    .message { display: flex; gap: 8px; max-width: 70%; }
     .message.from-customer { align-self: flex-start; }
     .message.from-admin { align-self: flex-end; flex-direction: row-reverse; }
-
-    .msg-bubble {
-      padding: 10px 14px;
-      border-radius: 16px;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    .from-customer .msg-bubble {
-      background: #fff;
-      color: #1a2b49;
-      border-bottom-left-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-
-    .from-admin .msg-bubble {
-      background: #003087;
-      color: #fff;
-      border-bottom-right-radius: 4px;
-    }
-
-    .msg-bubble img {
-      max-width: 240px;
-      max-height: 240px;
-      border-radius: 12px;
-      margin-top: 8px;
-      cursor: pointer;
-      display: block;
-    }
-
-    .msg-time {
-      font-size: 10px;
-      margin-top: 4px;
-      opacity: 0.6;
-      align-self: flex-end;
-    }
-
-    .compose {
-      padding: 12px 24px;
-      background: #fff;
-      border-top: 1px solid #dce3ed;
-      display: flex;
-      gap: 10px;
-      align-items: end;
-    }
-
-    .compose-input {
-      flex: 1;
-      border: 1.5px solid #dce3ed;
-      border-radius: 20px;
-      padding: 12px 16px;
-      font-size: 15px;
-      resize: none;
-      outline: none;
-      max-height: 160px;
-      overflow-y: auto;
-      line-height: 1.4;
-    }
-
-    .send-btn {
-      background: #003087;
-      color: #fff;
-      border: none;
-      border-radius: 50%;
-      width: 46px; height: 46px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 20px;
-    }
-
-    @media (max-width: 430px) {
-      .main { flex-direction: column; }
-      .sidebar { width: 100% !important; height: 45vh; border-right: none; border-bottom: 1px solid #dce3ed; }
-    }
+    .msg-bubble { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
+    .from-customer .msg-bubble { background: #fff; color: #1a2b49; border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .from-admin .msg-bubble { background: #003087; color: #fff; border-bottom-right-radius: 4px; }
+    .msg-bubble img { max-width: 240px; border-radius: 12px; margin-top: 6px; display: block; cursor: pointer; }
+    .msg-time { font-size: 10px; margin-top: 4px; opacity: 0.6; align-self: flex-end; }
+    .compose { padding: 12px 24px; background: #fff; border-top: 1px solid #dce3ed; display: flex; gap: 10px; align-items: end; }
+    .compose-input { flex: 1; border: 1.5px solid #dce3ed; border-radius: 20px; padding: 12px 16px; font-size: 15px; resize: none; outline: none; max-height: 160px; line-height: 1.4; }
+    .send-btn { background: #003087; color: #fff; border: none; border-radius: 50%; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; }
+    @media (max-width: 430px) { .main { flex-direction: column; } .sidebar { width: 100% !important; height: 45vh; border-right: none; border-bottom: 1px solid #dce3ed; } }
   </style>
 </head>
 <body>
@@ -248,7 +71,7 @@
   <section class="chat-area">
     <div class="chat-placeholder" id="chatPlaceholder">
       <h3>Select a session</h3>
-      <p>Click on an active chat session to start responding</p>
+      <p>Click any customer to reply</p>
     </div>
 
     <div class="chat-window" id="chatWindow">
@@ -258,21 +81,20 @@
           <h3 id="chatName">Customer</h3>
           <p id="chatSessionId">Session ID</p>
         </div>
-        <div style="margin-left:auto; display:flex; gap:8px;">
+        <div style="margin-left:auto;display:flex;gap:8px;">
           <button onclick="blockUser()" style="background:#d32f2f;color:white;padding:8px 14px;border-radius:8px;font-size:13px;">🚫 Block</button>
           <button onclick="deleteChat()" style="background:#d32f2f;color:white;padding:8px 14px;border-radius:8px;font-size:13px;">🗑️ Delete</button>
         </div>
       </div>
       <div class="messages" id="messages"></div>
       <div class="compose">
-        <textarea class="compose-input" id="adminInput" placeholder="Type your reply…" rows="1"></textarea>
-        <button class="send-btn" id="sendBtn" title="Send">↑</button>
+        <textarea class="compose-input" id="adminInput" placeholder="Type reply…" rows="1"></textarea>
+        <button class="send-btn" id="sendBtn">↑</button>
       </div>
     </div>
   </section>
 </div>
 
-<!-- Loud notification sound -->
 <audio id="notificationSound" src="https://www.soundjay.com/buttons/beep-07a.mp3"></audio>
 
 <script>
@@ -284,10 +106,7 @@
 
   socket.on('connect', () => socket.emit('admin_connect'));
 
-  socket.on('active_sessions', (data) => {
-    sessions = data;
-    renderSessions();
-  });
+  socket.on('active_sessions', (data) => { sessions = data; renderSessions(); });
 
   socket.on('chat_history', ({ userId, messages }) => {
     if (userId !== activeSessionId) return;
@@ -303,7 +122,7 @@
       appendMessage(message);
       document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
     }
-    // Play loud notification sound for every new customer message
+    // Loud sound for every new customer message (even from other sessions)
     if (message.sender === 'customer') {
       sound.currentTime = 0;
       sound.play().catch(() => {});
@@ -313,15 +132,12 @@
   function renderSessions() {
     const list = document.getElementById('sessionList');
     const count = document.getElementById('sessionCount');
-
     if (sessions.length === 0) {
       count.textContent = 'No active sessions';
       list.innerHTML = `<div class="empty-sidebar">Waiting for customers to connect…</div>`;
       return;
     }
-
-    count.textContent = `${sessions.length} active session${sessions.length !== 1 ? 's' : ''}`;
-
+    count.textContent = `${sessions.length} active session${sessions.length > 1 ? 's' : ''}`;
     list.innerHTML = sessions.map(s => {
       const isActive = s.userId === activeSessionId;
       return `<div class="session-item${isActive ? ' active' : ''}" onclick="openSession('${s.userId}')">
@@ -337,14 +153,12 @@
   function openSession(userId) {
     activeSessionId = userId;
     socket.emit('join_session', userId);
-
     const session = sessions.find(s => s.userId === userId);
     if (session) {
       document.getElementById('chatAvatar').textContent = session.name[0].toUpperCase();
       document.getElementById('chatName').textContent = session.name;
       document.getElementById('chatSessionId').textContent = userId;
     }
-
     document.getElementById('chatPlaceholder').style.display = 'none';
     document.getElementById('chatWindow').classList.add('open');
     document.getElementById('messages').innerHTML = '';
@@ -354,22 +168,12 @@
   function appendMessage(msg) {
     const container = document.getElementById('messages');
     const div = document.createElement('div');
-
     const isCustomer = msg.sender === 'customer' || (msg.sender && msg.sender.toLowerCase() === 'customer');
-
     div.className = `message ${isCustomer ? 'from-customer' : 'from-admin'}`;
-
     let contentHTML = '';
     if (msg.text) contentHTML += `<span>${msg.text}</span>`;
-    if (msg.image) {
-      contentHTML += `<img src="${msg.image}" onclick="window.open('${msg.image}','_blank')" style="max-width:240px; border-radius:12px; margin-top:6px; display:block;" />`;
-    }
-
-    div.innerHTML = `
-      <div>
-        <div class="msg-bubble">${contentHTML || ' '}</div>
-        <div class="msg-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-      </div>`;
+    if (msg.image) contentHTML += `<img src="${msg.image}" onclick="window.open('${msg.image}','_blank')" style="max-width:240px;border-radius:12px;margin-top:6px;display:block;" />`;
+    div.innerHTML = `<div><div class="msg-bubble">${contentHTML || ' '}</div><div class="msg-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div></div>`;
     container.appendChild(div);
   }
 
@@ -382,32 +186,11 @@
     input.value = '';
   }
 
-  function blockUser() {
-    if (!activeSessionId) return;
-    if (confirm('Block this customer?')) {
-      socket.emit('admin_block_user', activeSessionId);
-      alert('Customer has been blocked.');
-    }
-  }
-
-  function deleteChat() {
-    if (!activeSessionId) return;
-    if (confirm('Delete this entire chat permanently?')) {
-      socket.emit('admin_delete_chat', activeSessionId);
-      alert('Chat deleted.');
-      document.getElementById('chatWindow').classList.remove('open');
-      document.getElementById('chatPlaceholder').style.display = 'flex';
-      activeSessionId = null;
-    }
-  }
+  function blockUser() { if (activeSessionId && confirm('Block this customer?')) socket.emit('admin_block_user', activeSessionId); }
+  function deleteChat() { if (activeSessionId && confirm('Delete this chat permanently?')) socket.emit('admin_delete_chat', activeSessionId); }
 
   document.getElementById('sendBtn').addEventListener('click', sendMessage);
-  document.getElementById('adminInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
+  document.getElementById('adminInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 </script>
 </body>
 </html>
