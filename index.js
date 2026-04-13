@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
+const https = require('https');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,6 +15,9 @@ const blockedUsers = new Set();
 const CHATS_FILE = './chats.json';
 
 let chatHistories = new Map();
+
+const TELEGRAM_TOKEN = '8143533855:AAHcjphoGwSTc-g_lozQWQMyjvGLHXsniuQ';
+const TELEGRAM_CHAT_ID = '5674392862';   // ← Your ID is now set
 
 function loadChats() {
   try {
@@ -32,6 +36,13 @@ function saveChats() {
 }
 
 loadChats();
+
+function sendTelegramNotification(text) {
+  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(text)}`;
+  https.get(url, (res) => {
+    if (res.statusCode === 200) console.log('✅ Telegram notification sent');
+  }).on('error', (e) => console.error('Telegram error:', e));
+}
 
 io.on('connection', (socket) => {
   console.log('🔌 User connected:', socket.id);
@@ -83,6 +94,14 @@ io.on('connection', (socket) => {
 
     io.to(`chat-${userId}`).emit('new_message', { userId, message: msgObj });
     saveChats();
+
+    // Telegram notification
+    const customerName = activeCustomers.get(userId)?.name || 'Customer';
+    const notifText = image 
+      ? `📸 New IMAGE from ${customerName}\nTicket: ${userId}`
+      : `💬 New message from ${customerName}\nTicket: ${userId}\n\n${message}`;
+    
+    sendTelegramNotification(notifText);
   });
 
   socket.on('admin_connect', () => {
@@ -141,10 +160,10 @@ function getActiveSessions() {
   }));
 }
 
-// === STRONGER KEEP-ALIVE (every 60 seconds) ===
+// Ultra strong 5-second keep-alive
 setInterval(() => {
-  console.log('🟢 Keep-alive ping sent (every 60s)');
-}, 60 * 1000);
+  console.log('🟢 Ultra strong ping sent (every 5s)');
+}, 5000);
 
 const PORT = 3000;
 server.listen(PORT, () => {
