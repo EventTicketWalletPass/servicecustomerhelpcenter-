@@ -18,14 +18,22 @@
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     .main { display: flex; flex: 1; overflow: hidden; }
     .sidebar { width: 320px; background: #fff; border-right: 1px solid #dce3ed; display: flex; flex-direction: column; }
-    .sidebar-header { padding: 16px 20px; border-bottom: 1px solid #dce3ed; background: #f7f9fc; }
+    .sidebar-header { padding: 12px 16px; border-bottom: 1px solid #dce3ed; background: #f7f9fc; }
+    .search-bar { width: 100%; padding: 8px 12px; border: 1.5px solid #dce3ed; border-radius: 20px; font-size: 13px; outline: none; background: #fff; margin-top: 8px; }
+    .search-bar:focus { border-color: #003087; }
+    .tabs { display: flex; border-bottom: 1px solid #dce3ed; }
+    .tab-btn { flex: 1; padding: 10px; font-size: 13px; font-weight: 600; color: #6b7c93; background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-btn.active { color: #003087; border-bottom-color: #003087; background: #f0f4ff; }
+    .tab-btn:hover:not(.active) { background: #f7f9fc; }
     .session-count { font-size: 12px; color: #6b7c93; margin-top: 2px; }
     .session-list { flex: 1; overflow-y: auto; }
     .session-item { padding: 14px 20px; border-bottom: 1px solid #f0f4f8; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; }
     .session-item:hover { background: #f7f9fc; }
     .session-item.active { background: #e8f0fe; border-left: 3px solid #003087; }
-    .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #009cde, #003087); color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-    .session-info { flex: 1; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #009cde, #003087); color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; }
+    .online-dot { position: absolute; bottom: 1px; right: 1px; width: 10px; height: 10px; background: #2ecc71; border-radius: 50%; border: 2px solid #fff; }
+    .offline-dot { position: absolute; bottom: 1px; right: 1px; width: 10px; height: 10px; background: #aaa; border-radius: 50%; border: 2px solid #fff; }
+    .session-info { flex: 1; min-width: 0; }
     .session-name { font-size: 14px; font-weight: 600; color: #1a2b49; }
     .session-preview { font-size: 12px; color: #6b7c93; margin-top: 2px; }
     .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -42,9 +50,13 @@
     .from-admin .msg-bubble { background: #003087; color: #fff; border-bottom-right-radius: 4px; }
     .msg-bubble img { max-width: 240px; border-radius: 12px; margin-top: 6px; display: block; cursor: pointer; }
     .msg-time { font-size: 10px; margin-top: 4px; opacity: 0.6; align-self: flex-end; }
+    .typing-indicator { padding: 8px 24px; font-size: 12px; color: #6b7c93; font-style: italic; min-height: 28px; background: #f7f9fc; }
     .compose { padding: 12px 24px; background: #fff; border-top: 1px solid #dce3ed; display: flex; gap: 10px; align-items: end; }
     .compose-input { flex: 1; border: 1.5px solid #dce3ed; border-radius: 20px; padding: 12px 16px; font-size: 15px; resize: none; outline: none; max-height: 160px; line-height: 1.4; }
-    .send-btn { background: #003087; color: #fff; border: none; border-radius: 50%; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; }
+    .compose-input:focus { border-color: #003087; }
+    .send-btn { background: #003087; color: #fff; border: none; border-radius: 50%; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; flex-shrink: 0; }
+    .send-btn:hover { background: #004ab5; }
+    .empty-sidebar { padding: 32px 20px; text-align: center; color: #9aa8bc; font-size: 14px; }
     @media (max-width: 430px) { .main { flex-direction: column; } .sidebar { width: 100% !important; height: 45vh; border-right: none; border-bottom: 1px solid #dce3ed; } }
   </style>
 </head>
@@ -61,16 +73,22 @@
 <div class="main">
   <aside class="sidebar">
     <div class="sidebar-header">
-      <h2>Active Sessions</h2>
-      <div class="session-count" id="sessionCount">No active sessions</div>
+      <h2>Support Chats</h2>
+      <div class="session-count" id="sessionCount">Loading…</div>
+      <input type="search" class="search-bar" id="searchBar" placeholder="🔍 Search by User ID or name…">
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" id="tabActive" onclick="switchTab('active')">🟢 Active</button>
+      <button class="tab-btn" id="tabAll" onclick="switchTab('all')">📋 All Chats</button>
     </div>
     <div class="session-list" id="sessionList"></div>
   </aside>
 
   <section class="chat-area">
     <div class="chat-placeholder" id="chatPlaceholder">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c5cdd8" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <h3>Select a session</h3>
-      <p>Click any customer to reply</p>
+      <p>Click any customer to open their chat</p>
     </div>
 
     <div class="chat-window" id="chatWindow">
@@ -78,14 +96,15 @@
         <div class="avatar" id="chatAvatar">?</div>
         <div class="chat-header-info">
           <h3 id="chatName">Customer</h3>
-          <p id="chatSessionId">Session ID</p>
+          <p id="chatSessionId" style="font-size:12px;color:#6b7c93;"></p>
         </div>
         <div style="margin-left:auto;display:flex;gap:8px;">
-          <button onclick="blockUser()" style="background:#d32f2f;color:white;padding:8px 14px;border-radius:8px;font-size:13px;">🚫 Block</button>
-          <button onclick="deleteChat()" style="background:#d32f2f;color:white;padding:8px 14px;border-radius:8px;font-size:13px;">🗑️ Delete</button>
+          <button onclick="blockUser()" style="background:#d32f2f;color:white;padding:8px 14px;border-radius:8px;font-size:13px;border:none;cursor:pointer;">🚫 Block</button>
+          <button onclick="deleteChat()" style="background:#d32f2f;color:white;padding:8px 14px;border-radius:8px;font-size:13px;border:none;cursor:pointer;">🗑️ Delete</button>
         </div>
       </div>
       <div class="messages" id="messages"></div>
+      <div class="typing-indicator" id="typingIndicator"></div>
       <div class="compose">
         <textarea class="compose-input" id="adminInput" placeholder="Type your reply…" rows="1"></textarea>
         <button class="send-btn" id="sendBtn">↑</button>
@@ -94,14 +113,17 @@
   </section>
 </div>
 
-<audio id="notificationSound" src="https://www.soundjay.com/buttons/beep-07a.mp3"></audio>
+<audio id="notificationSound" src="https://www.soundjay.com/buttons/beep-07a.mp3" preload="auto"></audio>
 
 <script>
   const socket = io();
   let activeSessionId = null;
-  let sessions = [];
+  let activeSessions = [];
+  let allSessions = [];
+  let currentTab = 'active';
+  let searchQuery = '';
+  let typingTimer = null;
   const loadedSessions = new Set();
-
   const sound = document.getElementById('notificationSound');
 
   socket.on('connect', () => {
@@ -109,7 +131,15 @@
     console.log('✅ Admin connected');
   });
 
-  socket.on('active_sessions', (data) => { sessions = data; renderSessions(); });
+  socket.on('active_sessions', (data) => {
+    activeSessions = data;
+    renderSessions();
+  });
+
+  socket.on('all_sessions', (data) => {
+    allSessions = data;
+    renderSessions();
+  });
 
   socket.on('chat_history', ({ userId, messages }) => {
     if (userId !== activeSessionId) return;
@@ -119,14 +149,13 @@
       messages.forEach(msg => appendMessage(msg));
       loadedSessions.add(userId);
     }
-    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    scrollToBottom();
   });
 
   socket.on('new_message', ({ userId, message }) => {
-    renderSessions();
     if (userId === activeSessionId) {
       appendMessage(message);
-      document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+      scrollToBottom();
     }
     if (message.sender === 'customer') {
       sound.currentTime = 0;
@@ -134,51 +163,92 @@
     }
   });
 
+  socket.on('customer_typing', ({ userId, name }) => {
+    if (userId === activeSessionId) {
+      document.getElementById('typingIndicator').textContent = `${name} is typing…`;
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        document.getElementById('typingIndicator').textContent = '';
+      }, 2000);
+    }
+  });
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabActive').classList.toggle('active', tab === 'active');
+    document.getElementById('tabAll').classList.toggle('active', tab === 'all');
+    renderSessions();
+  }
+
   function renderSessions() {
     const list = document.getElementById('sessionList');
     const count = document.getElementById('sessionCount');
+    const query = searchQuery.toLowerCase();
+
+    let sessions = currentTab === 'active' ? activeSessions : allSessions;
+
+    if (query) {
+      sessions = sessions.filter(s =>
+        s.userId.toLowerCase().includes(query) ||
+        (s.name || '').toLowerCase().includes(query)
+      );
+    }
+
+    if (currentTab === 'active') {
+      count.textContent = `${activeSessions.length} active session${activeSessions.length !== 1 ? 's' : ''}`;
+    } else {
+      count.textContent = `${allSessions.length} total chat${allSessions.length !== 1 ? 's' : ''}`;
+    }
+
     if (sessions.length === 0) {
-      count.textContent = 'No active sessions';
-      list.innerHTML = `<div class="empty-sidebar">Waiting for customers to connect…</div>`;
+      list.innerHTML = `<div class="empty-sidebar">${query ? 'No results found.' : currentTab === 'active' ? 'Waiting for customers to connect…' : 'No chat history yet.'}</div>`;
       return;
     }
-    count.textContent = `${sessions.length} active session${sessions.length > 1 ? 's' : ''}`;
+
     list.innerHTML = sessions.map(s => {
       const isActive = s.userId === activeSessionId;
-      return `<div class="session-item${isActive ? ' active' : ''}" onclick="openSession('${s.userId}')">
-        <div class="avatar">${s.name[0].toUpperCase()}</div>
+      const isOnline = currentTab === 'active' || (s.isOnline !== undefined ? s.isOnline : activeSessions.some(a => a.userId === s.userId));
+      const nameInitial = (s.name || '?')[0].toUpperCase();
+      const dot = isOnline ? '<div class="online-dot"></div>' : '<div class="offline-dot"></div>';
+      const preview = currentTab === 'all' ? `${s.messageCount || 0} message${s.messageCount !== 1 ? 's' : ''}` : 'Tap to join chat';
+      return `<div class="session-item${isActive ? ' active' : ''}" onclick="openSession('${s.userId}', '${(s.name || 'Customer').replace(/'/g, "\\'")}')">
+        <div class="avatar">${nameInitial}${dot}</div>
         <div class="session-info">
-          <div class="session-name">${s.name}</div>
-          <div class="session-preview">Tap to join chat</div>
+          <div class="session-name">${s.name || 'Unknown'}</div>
+          <div class="session-preview">${preview}</div>
         </div>
       </div>`;
     }).join('');
   }
 
-  function openSession(userId) {
+  function openSession(userId, name) {
     activeSessionId = userId;
+    loadedSessions.delete(userId);
     socket.emit('join_session', userId);
-    const session = sessions.find(s => s.userId === userId);
-    if (session) {
-      document.getElementById('chatAvatar').textContent = session.name[0].toUpperCase();
-      document.getElementById('chatName').textContent = session.name;
-      document.getElementById('chatSessionId').textContent = userId;
-    }
+    document.getElementById('chatAvatar').textContent = (name || '?')[0].toUpperCase();
+    document.getElementById('chatName').textContent = name || 'Customer';
+    document.getElementById('chatSessionId').textContent = userId;
     document.getElementById('chatPlaceholder').style.display = 'none';
     document.getElementById('chatWindow').classList.add('open');
+    document.getElementById('typingIndicator').textContent = '';
     renderSessions();
   }
 
   function appendMessage(msg) {
     const container = document.getElementById('messages');
     const div = document.createElement('div');
-    const isCustomer = msg.sender === 'customer' || (msg.sender && msg.sender.toLowerCase() === 'customer');
+    const isCustomer = msg.sender === 'customer';
     div.className = `message ${isCustomer ? 'from-customer' : 'from-admin'}`;
     let contentHTML = '';
     if (msg.text) contentHTML += `<span>${msg.text}</span>`;
     if (msg.image) contentHTML += `<img src="${msg.image}" onclick="window.open('${msg.image}','_blank')" style="max-width:240px;border-radius:12px;margin-top:6px;display:block;" />`;
     div.innerHTML = `<div><div class="msg-bubble">${contentHTML || ' '}</div><div class="msg-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div></div>`;
     container.appendChild(div);
+  }
+
+  function scrollToBottom() {
+    const m = document.getElementById('messages');
+    m.scrollTop = m.scrollHeight;
   }
 
   function sendMessage() {
@@ -188,27 +258,53 @@
     if (!text) return;
     socket.emit('admin_message', { userId: activeSessionId, message: text });
     input.value = '';
+    input.style.height = '';
   }
 
-  function blockUser() { if (activeSessionId && confirm('Block this customer?')) socket.emit('admin_block_user', activeSessionId); }
-  function deleteChat() { if (activeSessionId && confirm('Delete this chat permanently?')) socket.emit('admin_delete_chat', activeSessionId); }
-
-  // ====================== STRONG ADMIN PING ======================
-  // Sends a ping every 20 seconds to keep the Render server awake
-  setInterval(() => {
-    if (socket && socket.connected) {
-      socket.emit('admin_keep_alive');   // dummy event
-      console.log('🟢 Strong admin keep-alive ping sent (every 20s)');
+  function blockUser() {
+    if (activeSessionId && confirm('Block this customer?')) socket.emit('admin_block_user', activeSessionId);
+  }
+  function deleteChat() {
+    if (activeSessionId && confirm('Delete this chat permanently?')) {
+      socket.emit('admin_delete_chat', activeSessionId);
+      activeSessionId = null;
+      document.getElementById('chatWindow').classList.remove('open');
+      document.getElementById('chatPlaceholder').style.display = '';
     }
-  }, 20 * 1000);
+  }
 
   document.getElementById('sendBtn').addEventListener('click', sendMessage);
+
   document.getElementById('adminInput').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   });
+
+  let adminTypingTimer = null;
+  document.getElementById('adminInput').addEventListener('input', () => {
+    if (!activeSessionId) return;
+    socket.emit('admin_typing', { userId: activeSessionId });
+    clearTimeout(adminTypingTimer);
+    adminTypingTimer = setTimeout(() => {}, 1500);
+    // Auto-grow textarea
+    const ta = document.getElementById('adminInput');
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+  });
+
+  document.getElementById('searchBar').addEventListener('input', e => {
+    searchQuery = e.target.value;
+    renderSessions();
+  });
+
+  // Keep-alive: 30s ping to keep server connection alive on Render/etc.
+  setInterval(() => {
+    if (socket && socket.connected) {
+      socket.emit('admin_keep_alive');
+    }
+  }, 30 * 1000);
 </script>
 </body>
 </html>

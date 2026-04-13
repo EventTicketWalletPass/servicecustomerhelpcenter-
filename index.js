@@ -15,17 +15,25 @@ const activeCustomers = new Map();
 const blockedUsers = new Set();
 const CHATS_FILE = './chats.json';
 
+// chatHistories: Map<userId, { name: string, messages: [] }>
 let chatHistories = new Map();
 
-// Load credentials from environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 function loadChats() {
   try {
     if (fs.existsSync(CHATS_FILE)) {
-      const data = fs.readFileSync(CHATS_FILE, 'utf8');
-      chatHistories = new Map(JSON.parse(data));
+      const raw = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf8'));
+      // Support both old format (array of [userId, messages[]]) and new format
+      if (Array.isArray(raw)) {
+        chatHistories = new Map(raw.map(([userId, value]) => {
+          if (Array.isArray(value)) {
+            return [userId, { name: 'Unknown', messages: value }];
+          }
+          return [userId, value];
+        }));
+      }
     }
   } catch (e) {
     console.error("Error loading chats:", e);
@@ -45,13 +53,30 @@ loadChats();
 
 function sendTelegramNotification(text) {
   if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.error('❌ Missing Telegram credentials in .env');
+    console.error('❌ Missing Telegram credentials. Set TELEGRAM_TOKEN and TELEGRAM_CHAT_ID in Secrets.');
     return;
   }
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(text)}`;
   https.get(url, (res) => {
     if (res.statusCode === 200) console.log('✅ Telegram notification sent');
+    else console.error('Telegram response:', res.statusCode);
   }).on('error', (e) => console.error('Telegram error:', e));
+}
+
+function getActiveSessions() {
+  return Array.from(activeCustomers.entries()).map(([userId, data]) => ({
+    userId,
+    name: data.name
+  }));
+}
+
+function getAllSessions() {
+  return Array.from(chatHistories.entries()).map(([userId, data]) => ({
+    userId,
+    name: data.name || 'Unknown',
+    messageCount: data.messages ? data.messages.length : 0,
+    isOnline: activeCustomers.has(userId)
+  }));
 }
 
 io.on('connection', (socket) => {
@@ -71,19 +96,26 @@ io.on('connection', (socket) => {
     socket.isCustomer = true;
     socket.join(`chat-${finalUserId}`);
 
-    if (!chatHistories.has(finalUserId)) chatHistories.set(finalUserId, []);
+    if (!chatHistories.has(finalUserId)) {
+      chatHistories.set(finalUserId, { name, messages: [] });
+    } else {
+      chatHistories.get(finalUserId).name = name;
+    }
 
     const welcome = {
       id: Date.now(),
       sender: 'support',
-      text: `Hello ${name}! Thank you for contacting Support. I’ll be assisting you today.`,
+      text: `Hello ${name}! Thank you for contacting Support. I'll be assisting you today.`,
       timestamp: new Date().toISOString()
     };
-    chatHistories.get(finalUserId).push(welcome);
+    chatHistories.get(finalUserId).messages.push(welcome);
     io.to(`chat-${finalUserId}`).emit('new_message', { userId: finalUserId, message: welcome });
 
     io.to('admin_room').emit('active_sessions', getActiveSessions());
+    io.to('admin_room').emit('all_sessions', getAllSessions());
     saveChats();
+
+    sendTelegramNotification(`🟢 New customer connected: ${name}\nTicket: ${finalUserId}`);
   });
 
   socket.on('user_message', ({ message, image }) => {
@@ -99,32 +131,40 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString()
     };
 
-    if (!chatHistories.has(userId)) chatHistories.set(userId, []);
-    chatHistories.get(userId).push(msgObj);
+    if (!chatHistories.has(userId)) chatHistories.set(userId, { name: 'Unknown', messages: [] });
+    chatHistories.get(userId).messages.push(msgObj);
 
     io.to(`chat-${userId}`).emit('new_message', { userId, message: msgObj });
     saveChats();
 
     const customerName = activeCustomers.get(userId)?.name || 'Customer';
-    const notifText = image 
+    const notifText = image
       ? `📸 New IMAGE from ${customerName}\nTicket: ${userId}`
       : `💬 New message from ${customerName}\nTicket: ${userId}\n\n${message}`;
-    
+
     sendTelegramNotification(notifText);
+  });
+
+  socket.on('customer_typing', () => {
+    if (!socket.isCustomer || !socket.userId) return;
+    const name = activeCustomers.get(socket.userId)?.name || 'Customer';
+    io.to('admin_room').emit('customer_typing', { userId: socket.userId, name });
   });
 
   socket.on('admin_connect', () => {
     socket.isAdmin = true;
     socket.join('admin_room');
     socket.emit('active_sessions', getActiveSessions());
+    socket.emit('all_sessions', getAllSessions());
   });
 
   socket.on('join_session', (userId) => {
     if (!socket.isAdmin) return;
     socket.currentUserId = userId;
     socket.join(`chat-${userId}`);
-    const history = chatHistories.get(userId) || [];
-    socket.emit('chat_history', { userId, messages: [...history] });
+    const entry = chatHistories.get(userId);
+    const messages = entry ? entry.messages : [];
+    socket.emit('chat_history', { userId, messages: [...messages] });
   });
 
   socket.on('admin_message', ({ userId, message, image }) => {
@@ -136,15 +176,21 @@ io.on('connection', (socket) => {
       image: image || null,
       timestamp: new Date().toISOString()
     };
-    chatHistories.get(userId).push(msgObj);
+    chatHistories.get(userId).messages.push(msgObj);
     io.to(`chat-${userId}`).emit('new_message', { userId, message: msgObj });
     saveChats();
+  });
+
+  socket.on('admin_typing', ({ userId }) => {
+    if (!socket.isAdmin) return;
+    io.to(`chat-${userId}`).emit('support_typing');
   });
 
   socket.on('admin_block_user', (userId) => {
     blockedUsers.add(userId);
     io.to(`chat-${userId}`).emit('blocked', { message: 'You have been blocked by support.' });
     io.to('admin_room').emit('active_sessions', getActiveSessions());
+    io.to('admin_room').emit('all_sessions', getAllSessions());
     saveChats();
   });
 
@@ -153,25 +199,18 @@ io.on('connection', (socket) => {
     blockedUsers.delete(userId);
     io.to(`chat-${userId}`).emit('chat_deleted');
     io.to('admin_room').emit('active_sessions', getActiveSessions());
+    io.to('admin_room').emit('all_sessions', getAllSessions());
     saveChats();
   });
 
   socket.on('disconnect', () => {
-    if (socket.userId) activeCustomers.delete(socket.userId);
-    io.to('admin_room').emit('active_sessions', getActiveSessions());
+    if (socket.userId) {
+      activeCustomers.delete(socket.userId);
+      io.to('admin_room').emit('active_sessions', getActiveSessions());
+      io.to('admin_room').emit('all_sessions', getAllSessions());
+    }
   });
 });
-
-function getActiveSessions() {
-  return Array.from(activeCustomers.entries()).map(([userId, data]) => ({
-    userId,
-    name: data.name
-  }));
-}
-
-setInterval(() => {
-  console.log('🟢 Ultra strong ping sent (every 5s)');
-}, 5000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

@@ -94,6 +94,14 @@
         </div>
     </div>
 
+    <!-- Typing indicator -->
+    <div id="typing-indicator" class="px-5 pb-1 bg-[#f8f9fa] hidden">
+        <div class="flex items-center gap-2">
+            <img src="https://randomuser.me/api/portraits/women/44.jpg" class="w-6 h-6 rounded-full border border-[#0070ba]">
+            <span class="text-xs text-gray-500 italic">PayPal Assistant is typing…</span>
+        </div>
+    </div>
+
     <!-- Image preview -->
     <div id="image-preview-wrap" class="px-4 bg-white">
         <div class="inline-flex items-start gap-2">
@@ -165,6 +173,7 @@
 
             socket.on('new_message', ({ message }) => {
                 if (message.sender === 'support') {
+                    hideTypingIndicator();
                     notificationSound.play().catch(() => {});
                     if (message.image) {
                         appendImage(message.image, false, message.timestamp);
@@ -174,6 +183,10 @@
                         saveMessage(message.text, false, null, message.timestamp);
                     }
                 }
+            });
+
+            socket.on('support_typing', () => {
+                showTypingIndicator();
             });
         }
 
@@ -239,10 +252,29 @@
             sendMessage();
         }
 
+        let typingIndicatorTimer = null;
+        function showTypingIndicator() {
+            document.getElementById('typing-indicator').classList.remove('hidden');
+            document.getElementById('chat-scroll').scrollTop = document.getElementById('chat-scroll').scrollHeight;
+            clearTimeout(typingIndicatorTimer);
+            typingIndicatorTimer = setTimeout(hideTypingIndicator, 3000);
+        }
+        function hideTypingIndicator() {
+            document.getElementById('typing-indicator').classList.add('hidden');
+        }
+
         function removeImagePreview() {
             document.getElementById('image-preview-wrap').style.display = 'none';
             document.getElementById('image-input').value = '';
         }
+
+        let customerTypingTimer = null;
+        document.getElementById('message-input').addEventListener('input', () => {
+            if (!socket) return;
+            clearTimeout(customerTypingTimer);
+            socket.emit('customer_typing');
+            customerTypingTimer = setTimeout(() => {}, 1500);
+        });
 
         document.getElementById('image-input').addEventListener('change', () => {
             const file = document.getElementById('image-input').files[0];
