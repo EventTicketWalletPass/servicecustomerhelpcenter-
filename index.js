@@ -5,6 +5,8 @@ const { Server } = require('socket.io');
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
+const TelegramBot = require('node-telegram-bot-api');
+const bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
 
 
 const app = express();
