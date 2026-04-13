@@ -6,7 +6,6 @@
   <title>PayPal Support Monitor</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    /* Same beautiful PayPal style as before + better mobile typing bar */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f0f4f8; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     header { background: #003087; color: #fff; padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
@@ -88,7 +87,7 @@
       </div>
       <div class="messages" id="messages"></div>
       <div class="compose">
-        <textarea class="compose-input" id="adminInput" placeholder="Type reply…" rows="1"></textarea>
+        <textarea class="compose-input" id="adminInput" placeholder="Type your reply…" rows="1"></textarea>
         <button class="send-btn" id="sendBtn">↑</button>
       </div>
     </div>
@@ -101,19 +100,26 @@
   const socket = io();
   let activeSessionId = null;
   let sessions = [];
+  const loadedSessions = new Set();
 
   const sound = document.getElementById('notificationSound');
 
-  socket.on('connect', () => socket.emit('admin_connect'));
+  socket.on('connect', () => {
+    socket.emit('admin_connect');
+    console.log('✅ Admin connected');
+  });
 
   socket.on('active_sessions', (data) => { sessions = data; renderSessions(); });
 
   socket.on('chat_history', ({ userId, messages }) => {
     if (userId !== activeSessionId) return;
-    const container = document.getElementById('messages');
-    container.innerHTML = '';
-    messages.forEach(msg => appendMessage(msg));
-    container.scrollTop = container.scrollHeight;
+    if (!loadedSessions.has(userId)) {
+      const container = document.getElementById('messages');
+      container.innerHTML = '';
+      messages.forEach(msg => appendMessage(msg));
+      loadedSessions.add(userId);
+    }
+    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
   });
 
   socket.on('new_message', ({ userId, message }) => {
@@ -122,7 +128,6 @@
       appendMessage(message);
       document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
     }
-    // Loud sound for every new customer message (even from other sessions)
     if (message.sender === 'customer') {
       sound.currentTime = 0;
       sound.play().catch(() => {});
@@ -161,7 +166,6 @@
     }
     document.getElementById('chatPlaceholder').style.display = 'none';
     document.getElementById('chatWindow').classList.add('open');
-    document.getElementById('messages').innerHTML = '';
     renderSessions();
   }
 
@@ -189,8 +193,22 @@
   function blockUser() { if (activeSessionId && confirm('Block this customer?')) socket.emit('admin_block_user', activeSessionId); }
   function deleteChat() { if (activeSessionId && confirm('Delete this chat permanently?')) socket.emit('admin_delete_chat', activeSessionId); }
 
+  // ====================== STRONG ADMIN PING ======================
+  // Sends a ping every 20 seconds to keep the Render server awake
+  setInterval(() => {
+    if (socket && socket.connected) {
+      socket.emit('admin_keep_alive');   // dummy event
+      console.log('🟢 Strong admin keep-alive ping sent (every 20s)');
+    }
+  }, 20 * 1000);
+
   document.getElementById('sendBtn').addEventListener('click', sendMessage);
-  document.getElementById('adminInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+  document.getElementById('adminInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
 </script>
 </body>
 </html>
