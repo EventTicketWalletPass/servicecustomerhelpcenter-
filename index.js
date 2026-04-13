@@ -7,10 +7,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-// Serve HTML files
 app.use(express.static(__dirname));
 
-const activeCustomers = new Map();   // userId → { name, socket }
+const activeCustomers = new Map();
 const blockedUsers = new Set();
 const CHATS_FILE = './chats.json';
 
@@ -37,7 +36,6 @@ loadChats();
 io.on('connection', (socket) => {
   console.log('🔌 User connected:', socket.id);
 
-  // Customer registers
   socket.on('register_customer', ({ userId, name }) => {
     if (!name) return socket.emit('error', 'Name is required');
     const finalUserId = userId || `TICKET-${socket.id.slice(0,8).toUpperCase()}`;
@@ -67,11 +65,9 @@ io.on('connection', (socket) => {
     saveChats();
   });
 
-  // Customer message
   socket.on('user_message', ({ message, image }) => {
     if (!socket.isCustomer || !socket.userId) return;
     const userId = socket.userId;
-
     if (blockedUsers.has(userId)) return;
 
     const msgObj = {
@@ -89,27 +85,22 @@ io.on('connection', (socket) => {
     saveChats();
   });
 
-  // Admin connects
   socket.on('admin_connect', () => {
     socket.isAdmin = true;
     socket.join('admin_room');
     socket.emit('active_sessions', getActiveSessions());
   });
 
-  // Admin joins session
   socket.on('join_session', (userId) => {
     if (!socket.isAdmin) return;
     socket.currentUserId = userId;
     socket.join(`chat-${userId}`);
-
     const history = chatHistories.get(userId) || [];
     socket.emit('chat_history', { userId, messages: [...history] });
   });
 
-  // Admin reply
   socket.on('admin_message', ({ userId, message, image }) => {
     if (!socket.isAdmin || !chatHistories.has(userId)) return;
-
     const msgObj = {
       id: Date.now(),
       sender: 'support',
@@ -117,13 +108,11 @@ io.on('connection', (socket) => {
       image: image || null,
       timestamp: new Date().toISOString()
     };
-
     chatHistories.get(userId).push(msgObj);
     io.to(`chat-${userId}`).emit('new_message', { userId, message: msgObj });
     saveChats();
   });
 
-  // Admin block user
   socket.on('admin_block_user', (userId) => {
     blockedUsers.add(userId);
     io.to(`chat-${userId}`).emit('blocked', { message: 'You have been blocked by support.' });
@@ -131,7 +120,6 @@ io.on('connection', (socket) => {
     saveChats();
   });
 
-  // Admin delete chat
   socket.on('admin_delete_chat', (userId) => {
     chatHistories.delete(userId);
     blockedUsers.delete(userId);
@@ -153,10 +141,10 @@ function getActiveSessions() {
   }));
 }
 
-// Keep-alive (helps reduce sleep delay on free Render)
+// === STRONGER KEEP-ALIVE (every 60 seconds) ===
 setInterval(() => {
-  console.log('🟢 Keep-alive ping sent');
-}, 4 * 60 * 1000);
+  console.log('🟢 Keep-alive ping sent (every 60s)');
+}, 60 * 1000);
 
 const PORT = 3000;
 server.listen(PORT, () => {
