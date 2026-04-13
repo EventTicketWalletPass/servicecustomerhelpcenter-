@@ -18,6 +18,14 @@ const io = new Server(server, {
 
 app.use(express.static(__dirname));
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'customer.html'));
+});
+
+app.get('/customer.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'customer.html'));
+});
+
 const activeCustomers = new Map();
 const blockedUsers = new Set();
 const CHATS_FILE = './chats.json';
