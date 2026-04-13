@@ -150,21 +150,7 @@
             }
         }
 
-        function startCustomerChat() {
-            customerName = document.getElementById('customerName').value.trim() || "Customer";
-            document.getElementById('nameModal').classList.add('hidden');
-
-            socket = io();
-
-            // Try to restore previous session first
-            const savedId = localStorage.getItem(LS_SESSION_KEY);
-            if (savedId) {
-                sessionId = savedId;
-                socket.emit('register_customer', { userId: savedId, name: customerName });
-            } else {
-                socket.emit('register_customer', { name: customerName });
-            }
-
+        function setupSocketListeners() {
             socket.on('registered', (data) => {
                 sessionId = data.userId;
                 localStorage.setItem(LS_SESSION_KEY, sessionId);
@@ -188,6 +174,44 @@
             socket.on('support_typing', () => {
                 showTypingIndicator();
             });
+
+            socket.on('queue_full', ({ message }) => {
+                document.getElementById('nameModal').classList.remove('hidden');
+                const modal = document.querySelector('.name-modal .bg-white');
+                let alert = modal.querySelector('.queue-alert');
+                if (!alert) {
+                    alert = document.createElement('p');
+                    alert.className = 'queue-alert text-center text-red-600 font-semibold text-sm mt-4';
+                    modal.appendChild(alert);
+                }
+                alert.textContent = message;
+            });
+
+            socket.on('blocked', ({ message }) => {
+                appendMessage('⚠️ ' + message, false);
+            });
+
+            socket.on('chat_deleted', () => {
+                localStorage.removeItem(LS_SESSION_KEY);
+                sessionId = null;
+                document.getElementById('messages-list').innerHTML = '';
+            });
+        }
+
+        function startCustomerChat() {
+            customerName = document.getElementById('customerName').value.trim() || "Customer";
+            document.getElementById('nameModal').classList.add('hidden');
+
+            socket = io();
+            setupSocketListeners();
+
+            const savedId = localStorage.getItem(LS_SESSION_KEY);
+            if (savedId) {
+                sessionId = savedId;
+                socket.emit('register_customer', { userId: savedId, name: customerName });
+            } else {
+                socket.emit('register_customer', { name: customerName });
+            }
         }
 
         function appendMessage(text, isUser, ts = Date.now()) {
@@ -294,6 +318,7 @@
                 document.getElementById('nameModal').classList.add('hidden');
                 socket = io();
                 sessionId = saved;
+                setupSocketListeners();
                 socket.emit('register_customer', { userId: saved, name: "Returning Customer" });
                 loadHistory();
             }

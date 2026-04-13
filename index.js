@@ -79,15 +79,24 @@ function getAllSessions() {
   }));
 }
 
+const MAX_CUSTOMERS = 4;
+
 io.on('connection', (socket) => {
   console.log('🔌 User connected:', socket.id);
 
   socket.on('register_customer', ({ userId, name }) => {
     if (!name) return socket.emit('error', 'Name is required');
     const finalUserId = userId || `TICKET-${socket.id.slice(0,8).toUpperCase()}`;
+    const isReturning = activeCustomers.has(finalUserId) || chatHistories.has(finalUserId);
 
     if (blockedUsers.has(finalUserId)) {
       socket.emit('blocked', { message: 'You have been blocked by support.' });
+      return;
+    }
+
+    // Enforce max 4 active customers (allow returning sessions through)
+    if (!isReturning && activeCustomers.size >= MAX_CUSTOMERS) {
+      socket.emit('queue_full', { message: 'All support agents are busy. Please try again later.' });
       return;
     }
 
@@ -96,26 +105,31 @@ io.on('connection', (socket) => {
     socket.isCustomer = true;
     socket.join(`chat-${finalUserId}`);
 
-    if (!chatHistories.has(finalUserId)) {
+    const isNewChat = !chatHistories.has(finalUserId);
+    if (isNewChat) {
       chatHistories.set(finalUserId, { name, messages: [] });
     } else {
       chatHistories.get(finalUserId).name = name;
     }
 
-    const welcome = {
-      id: Date.now(),
-      sender: 'support',
-      text: `Hello ${name}! Thank you for contacting Support. I'll be assisting you today.`,
-      timestamp: new Date().toISOString()
-    };
-    chatHistories.get(finalUserId).messages.push(welcome);
-    io.to(`chat-${finalUserId}`).emit('new_message', { userId: finalUserId, message: welcome });
+    // Tell the customer their assigned session ID
+    socket.emit('registered', { userId: finalUserId });
+
+    if (isNewChat) {
+      const welcome = {
+        id: Date.now(),
+        sender: 'support',
+        text: `Hello ${name}! Thank you for contacting Support. I'll be assisting you today.`,
+        timestamp: new Date().toISOString()
+      };
+      chatHistories.get(finalUserId).messages.push(welcome);
+      io.to(`chat-${finalUserId}`).emit('new_message', { userId: finalUserId, message: welcome });
+      sendTelegramNotification(`🟢 New customer connected: ${name}\nTicket: ${finalUserId}`);
+      saveChats();
+    }
 
     io.to('admin_room').emit('active_sessions', getActiveSessions());
     io.to('admin_room').emit('all_sessions', getAllSessions());
-    saveChats();
-
-    sendTelegramNotification(`🟢 New customer connected: ${name}\nTicket: ${finalUserId}`);
   });
 
   socket.on('user_message', ({ message, image }) => {
