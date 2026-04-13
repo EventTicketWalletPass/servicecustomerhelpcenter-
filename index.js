@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -16,8 +17,9 @@ const CHATS_FILE = './chats.json';
 
 let chatHistories = new Map();
 
-const TELEGRAM_TOKEN = '8143533855:AAHcjphoGwSTc-g_lozQWQMyjvGLHXsniuQ';
-const TELEGRAM_CHAT_ID = '5674392862';   // ← Your ID is now set
+// Load credentials from environment variables
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 function loadChats() {
   try {
@@ -25,19 +27,27 @@ function loadChats() {
       const data = fs.readFileSync(CHATS_FILE, 'utf8');
       chatHistories = new Map(JSON.parse(data));
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error("Error loading chats:", e);
+  }
 }
 
 function saveChats() {
   try {
     const data = JSON.stringify(Array.from(chatHistories.entries()));
     fs.writeFileSync(CHATS_FILE, data);
-  } catch (e) {}
+  } catch (e) {
+    console.error("Error saving chats:", e);
+  }
 }
 
 loadChats();
 
 function sendTelegramNotification(text) {
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.error('❌ Missing Telegram credentials in .env');
+    return;
+  }
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(text)}`;
   https.get(url, (res) => {
     if (res.statusCode === 200) console.log('✅ Telegram notification sent');
@@ -66,7 +76,7 @@ io.on('connection', (socket) => {
     const welcome = {
       id: Date.now(),
       sender: 'support',
-      text: `Hello ${name}! Thank you for contacting PayPal Support. I’ll be assisting you today.`,
+      text: `Hello ${name}! Thank you for contacting Support. I’ll be assisting you today.`,
       timestamp: new Date().toISOString()
     };
     chatHistories.get(finalUserId).push(welcome);
@@ -95,7 +105,6 @@ io.on('connection', (socket) => {
     io.to(`chat-${userId}`).emit('new_message', { userId, message: msgObj });
     saveChats();
 
-    // Telegram notification
     const customerName = activeCustomers.get(userId)?.name || 'Customer';
     const notifText = image 
       ? `📸 New IMAGE from ${customerName}\nTicket: ${userId}`
@@ -160,12 +169,11 @@ function getActiveSessions() {
   }));
 }
 
-// Ultra strong 5-second keep-alive
 setInterval(() => {
   console.log('🟢 Ultra strong ping sent (every 5s)');
 }, 5000);
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
