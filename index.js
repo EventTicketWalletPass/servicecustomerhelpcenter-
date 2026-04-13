@@ -20,6 +20,15 @@ const io = new Server(server, {
 
 app.use(express.static(__dirname));
 
+app.use(express.json()); // Essential for reading Telegram's data
+
+app.post('/api/webhook', (req, res) => {
+  // This passes the message to your bot logic
+  bot.processUpdate(req.body); 
+  res.sendStatus(200);
+});
+
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'customer.html'));
 });
