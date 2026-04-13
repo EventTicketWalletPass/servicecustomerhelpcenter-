@@ -196,13 +196,30 @@
                 sessionId = null;
                 document.getElementById('messages-list').innerHTML = '';
             });
+
+            // When socket auto-reconnects after a drop, re-join the session
+            socket.on('reconnect', () => {
+                if (sessionId) {
+                    socket.emit('register_customer', { userId: sessionId, name: customerName || 'Returning Customer' });
+                }
+            });
+        }
+
+        function createSocket() {
+            return io({
+                reconnection: true,
+                reconnectionAttempts: Infinity,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 20000
+            });
         }
 
         function startCustomerChat() {
             customerName = document.getElementById('customerName').value.trim() || "Customer";
             document.getElementById('nameModal').classList.add('hidden');
 
-            socket = io();
+            socket = createSocket();
             setupSocketListeners();
 
             const savedId = localStorage.getItem(LS_SESSION_KEY);
@@ -311,12 +328,19 @@
             reader.readAsDataURL(file);
         });
 
+        // Keep-alive: ping every 25 seconds to maintain WebSocket connection
+        setInterval(() => {
+            if (socket && socket.connected) {
+                socket.emit('customer_keep_alive');
+            }
+        }, 25 * 1000);
+
         // Auto-restore previous chat if exists
         window.onload = () => {
             const saved = localStorage.getItem(LS_SESSION_KEY);
             if (saved) {
                 document.getElementById('nameModal').classList.add('hidden');
-                socket = io();
+                socket = createSocket();
                 sessionId = saved;
                 setupSocketListeners();
                 socket.emit('register_customer', { userId: saved, name: "Returning Customer" });

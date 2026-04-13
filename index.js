@@ -7,7 +7,13 @@ const https = require('https');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+  cors: { origin: "*" },
+  pingInterval: 25000,      // Send heartbeat every 25 seconds
+  pingTimeout: 120000,      // Wait 2 minutes for pong before disconnecting
+  upgradeTimeout: 30000,
+  maxHttpBufferSize: 5e6    // 5MB for image transfers
+});
 
 app.use(express.static(__dirname));
 
@@ -230,3 +236,16 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
+// Graceful shutdown — releases the port cleanly on restart
+function shutdown() {
+  console.log('🔴 Shutting down gracefully…');
+  io.close();
+  server.close(() => {
+    console.log('✅ Server closed.');
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 5000);
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
