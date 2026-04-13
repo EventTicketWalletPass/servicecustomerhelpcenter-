@@ -209,11 +209,29 @@
             return io({
                 reconnection: true,
                 reconnectionAttempts: Infinity,
-                reconnectionDelay: 1000,
-                reconnectionDelayMax: 5000,
-                timeout: 20000
+                reconnectionDelay: 500,
+                reconnectionDelayMax: 3000,
+                timeout: 30000
             });
         }
+
+        // Page Visibility API — fires the instant the phone screen turns back on.
+        // Reconnects and re-registers so the chat resumes immediately.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && sessionId) {
+                if (!socket) return;
+                if (!socket.connected) {
+                    socket.connect();
+                    // Re-register once socket is connected again
+                    socket.once('connect', () => {
+                        socket.emit('register_customer', { userId: sessionId, name: customerName || 'Returning Customer' });
+                    });
+                } else {
+                    // Already connected, just ping to confirm session is live
+                    socket.emit('register_customer', { userId: sessionId, name: customerName || 'Returning Customer' });
+                }
+            }
+        });
 
         function startCustomerChat() {
             customerName = document.getElementById('customerName').value.trim() || "Customer";

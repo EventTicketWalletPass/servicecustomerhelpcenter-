@@ -9,10 +9,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*" },
-  pingInterval: 25000,      // Send heartbeat every 25 seconds
-  pingTimeout: 120000,      // Wait 2 minutes for pong before disconnecting
+  pingInterval: 60000,        // Heartbeat every 60 seconds
+  pingTimeout: 7200000,       // Wait up to 2 hours before dropping — covers phone background/sleep
+  connectTimeout: 45000,
   upgradeTimeout: 30000,
-  maxHttpBufferSize: 5e6    // 5MB for image transfers
+  maxHttpBufferSize: 5e6      // 5MB for image transfers
 });
 
 app.use(express.static(__dirname));

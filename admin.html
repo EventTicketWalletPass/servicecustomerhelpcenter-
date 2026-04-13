@@ -116,7 +116,13 @@
 <audio id="notificationSound" src="https://www.soundjay.com/buttons/beep-07a.mp3" preload="auto"></audio>
 
 <script>
-  const socket = io();
+  const socket = io({
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 3000,
+    timeout: 30000
+  });
   let activeSessionId = null;
   let activeSessions = [];
   let allSessions = [];
@@ -299,12 +305,29 @@
     renderSessions();
   });
 
-  // Keep-alive: 30s ping to keep server connection alive on Render/etc.
+  // Keep-alive: 60s ping
   setInterval(() => {
     if (socket && socket.connected) {
       socket.emit('admin_keep_alive');
     }
-  }, 30 * 1000);
+  }, 60 * 1000);
+
+  // Page Visibility API — re-connect admin instantly when screen/tab comes back
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (!socket.connected) {
+        socket.connect();
+        socket.once('connect', () => {
+          socket.emit('admin_connect');
+          if (activeSessionId) socket.emit('join_session', activeSessionId);
+        });
+      } else {
+        // Re-sync sessions in case we missed updates while hidden
+        socket.emit('admin_connect');
+        if (activeSessionId) socket.emit('join_session', activeSessionId);
+      }
+    }
+  });
 </script>
 </body>
 </html>
