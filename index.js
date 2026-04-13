@@ -126,7 +126,7 @@ io.on('connection', (socket) => {
       const welcome = {
         id: Date.now(),
         sender: 'support',
-        text: `Hello ${name}! Thank you for contacting Support. I'll be assisting you today.`,
+        text: `Hello ${name}! Thank you for contacting Paypal Support, I'll be assisting you today,l understand you're reaching out regarding your transaction. I'll do my best to help resolve this for you as quickly as possible, Could you please provide more details about the issue you're experiencing? A live agent will be with you shortly"`,
         timestamp: new Date().toISOString()
       };
       chatHistories.get(finalUserId).messages.push(welcome);
