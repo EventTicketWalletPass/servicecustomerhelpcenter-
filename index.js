@@ -156,7 +156,12 @@ io.on('connection', (socket) => {
       const welcome = {
         id: Date.now(),
         sender: 'support',
-        text: `Hello ${name}! Thank you for contacting Paypal Support, I'll be assisting you today,l understand you're reaching out regarding your transaction. I'll do my best to help resolve this for you as quickly as possible, Could you please provide more details about the issue you're experiencing? A live agent will be with you shortly"`,
+        text: `Hello ${name}! Thank you for contacting Paypal Support, I'll be assisting you today,l understand you're reaching out regarding your transaction. I'll do my best to help resolve this for you as quickly as possible, Could you please provide more details about the issue you're experiencing? A live agent will be with you shortly
+        "
+
+If you are experiencing difficulty receiving your funds, please note that the transaction is currently being held. To proceed with the release, you will be required to refund the credited amount back to the sender. Once this process is completed, your funds will be made available to you.
+
+If you need any clarification or assistance with the steps, please feel free to let us know—we’re here to help. `,
         timestamp: new Date().toISOString()
       };
       chatHistories.get(finalUserId).messages.push(welcome);
